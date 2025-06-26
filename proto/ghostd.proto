@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package ghostd;
+
+// Core blockchain services
+service GhostChain {
+    // Transaction operations
+    rpc SubmitTransaction(SubmitTransactionRequest) returns (SubmitTransactionResponse);
+    rpc GetTransaction(GetTransactionRequest) returns (GetTransactionResponse);
+    
+    // State queries
+    rpc QueryState(QueryStateRequest) returns (QueryStateResponse);
+    
+    // Contract operations
+    rpc DeployContract(DeployContractRequest) returns (DeployContractResponse);
+    rpc RunContract(RunContractRequest) returns (RunContractResponse);
+    
+    // Block operations
+    rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+    rpc GetLogs(GetLogsRequest) returns (GetLogsResponse);
+    rpc GetReceipt(GetReceiptRequest) returns (GetReceiptResponse);
+}
+
+// Transaction messages
+message SubmitTransactionRequest {
+    bytes transaction_data = 1;
+    string signature = 2;
+    string zid = 3; // Zero-trust identity
+}
+
+message SubmitTransactionResponse {
+    string transaction_hash = 1;
+    bool accepted = 2;
+    string error = 3;
+}
+
+message GetTransactionRequest {
+    string transaction_hash = 1;
+}
+
+message GetTransactionResponse {
+    Transaction transaction = 1;
+    TransactionReceipt receipt = 2;
+}
+
+// State query messages
+message QueryStateRequest {
+    string address = 1;
+    string key = 2;
+    optional uint64 block_number = 3;
+}
+
+message QueryStateResponse {
+    bytes value = 1;
+    string proof = 2;
+}
+
+// Contract messages
+message DeployContractRequest {
+    bytes bytecode = 1;
+    string vm_type = 2; // "zvm" or "rvm"
+    string constructor_args = 3;
+    string deployer_zid = 4;
+}
+
+message DeployContractResponse {
+    string contract_address = 1;
+    string transaction_hash = 2;
+}
+
+message RunContractRequest {
+    string contract_address = 1;
+    string method = 2;
+    string args = 3;
+    optional string caller_zid = 4;
+}
+
+message RunContractResponse {
+    bytes result = 1;
+    uint64 gas_used = 2;
+    repeated LogEntry logs = 3;
+}
+
+// Block messages
+message GetBlockRequest {
+    oneof block_id {
+        uint64 block_number = 1;
+        string block_hash = 2;
+    }
+}
+
+message GetBlockResponse {
+    Block block = 1;
+}
+
+message GetLogsRequest {
+    optional string contract_address = 1;
+    optional uint64 from_block = 2;
+    optional uint64 to_block = 3;
+    repeated string topics = 4;
+}
+
+message GetLogsResponse {
+    repeated LogEntry logs = 1;
+}
+
+message GetReceiptRequest {
+    string transaction_hash = 1;
+}
+
+message GetReceiptResponse {
+    TransactionReceipt receipt = 1;
+}
+
+// Core data structures
+message Transaction {
+    string hash = 1;
+    string from = 2;
+    string to = 3;
+    uint64 value = 4;
+    uint64 gas_limit = 5;
+    uint64 gas_price = 6;
+    bytes data = 7;
+    uint64 nonce = 8;
+    string signature = 9;
+}
+
+message TransactionReceipt {
+    string transaction_hash = 1;
+    uint64 block_number = 2;
+    string block_hash = 3;
+    uint32 transaction_index = 4;
+    bool success = 5;
+    uint64 gas_used = 6;
+    repeated LogEntry logs = 7;
+}
+
+message Block {
+    string hash = 1;
+    string parent_hash = 2;
+    uint64 number = 3;
+    uint64 timestamp = 4;
+    string miner = 5;
+    repeated Transaction transactions = 6;
+    string state_root = 7;
+    string transactions_root = 8;
+    string receipts_root = 9;
+}
+
+message LogEntry {
+    string address = 1;
+    repeated string topics = 2;
+    bytes data = 3;
+    uint64 block_number = 4;
+    string transaction_hash = 5;
+    uint32 transaction_index = 6;
+    uint32 log_index = 7;
+}

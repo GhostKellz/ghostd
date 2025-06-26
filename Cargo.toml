@@ -1,0 +1,47 @@
+[package]
+name = "ghostd"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# gRPC and networking
+tonic = "0.12"
+prost = "0.13"
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Cryptography
+sha2 = "0.10"
+blake3 = "1.5"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# WASM runtime for zvm
+wasmtime = "25.0"
+
+# EVM runtime for rvm/rEVM
+revm = "14.0"
+ethers = "2.0"
+
+# Database/storage
+# rocksdb = "0.22"  # Temporarily disabled due to compilation issues
+sled = "0.34"  # Alternative embedded database
+
+# Networking
+quinn = "0.11"  # QUIC implementation
+
+# Utilities
+hex = "0.4"
+
+[build-dependencies]
+tonic-build = "0.12"
