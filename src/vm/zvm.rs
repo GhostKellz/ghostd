@@ -1,23 +1,113 @@
 use anyhow::Result;
 use wasmtime::{Engine, Instance, Linker, Module, Store, TypedFunc};
 use crate::vm::{ExecutionResult, VmRuntime};
-use tracing::{info, warn, error};
+use crate::ffi::realid::{RealIdFfi, RealIdIdentity};
+use tracing::{info, warn, error, debug};
+use serde::{Deserialize, Serialize};
+
+/// VM execution context with identity information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VmContext {
+    pub identity: Option<RealIdIdentity>,
+    pub block_number: u64,
+    pub timestamp: u64,
+    pub gas_limit: u64,
+    pub contract_address: Option<Vec<u8>>,
+}
 
 /// ZVM (Zig Virtual Machine) runtime using WASM
 pub struct ZvmRuntime {
     engine: Engine,
     gas_limit: u64,
+    realid_ffi: RealIdFfi,
+    current_context: Option<VmContext>,
 }
 
 impl ZvmRuntime {
     pub fn new() -> Result<Self> {
         let engine = Engine::default();
+        let realid_ffi = RealIdFfi::new()?;
+        
         info!("🦀 ZVM Runtime initialized with Wasmtime engine");
+        info!("🔗 ZVM Runtime integrated with RealID FFI");
         
         Ok(Self {
             engine,
             gas_limit: 1_000_000, // Default gas limit
+            realid_ffi,
+            current_context: None,
         })
+    }
+    
+    /// Initialize VM context with identity and blockchain state
+    pub fn zvm_init(&mut self, passphrase: Option<&str>, block_number: u64, timestamp: u64) -> Result<()> {
+        debug!("🚀 Initializing ZVM context");
+        
+        let identity = if let Some(pass) = passphrase {
+            debug!("🔑 Loading identity from passphrase");
+            Some(self.realid_ffi.generate_from_passphrase(pass)?)
+        } else {
+            debug!("⚪ No identity provided for ZVM context");
+            None
+        };
+        
+        self.current_context = Some(VmContext {
+            identity: identity.clone(),
+            block_number,
+            timestamp,
+            gas_limit: self.gas_limit,
+            contract_address: None,
+        });
+        
+        if let Some(ref id) = identity {
+            info!("🆔 ZVM context initialized with identity QID: {}", hex::encode(&id.qid));
+            debug!("🔐 Identity device-bound: {}", id.device_bound);
+        }
+        
+        debug!("📦 ZVM context initialized - Block: {}, Time: {}", block_number, timestamp);
+        Ok(())
+    }
+    
+    /// Parse blocks and dispatch to zvm_eval
+    pub fn parseblocks_dispatch(&mut self, block_data: &[u8]) -> Result<Vec<ExecutionResult>> {
+        debug!("📋 Parsing blocks for ZVM dispatch");
+        
+        // TODO: Implement actual block parsing
+        // For now, treat as single transaction
+        let mut results = Vec::new();
+        
+        // Simulate parsing block data into transactions
+        if block_data.len() >= 32 {
+            let result = self.zvm_eval(&block_data[0..32], &[])?;
+            results.push(result);
+        }
+        
+        info!("✅ Processed {} transactions from block data", results.len());
+        Ok(results)
+    }
+    
+    /// Evaluate bytecode in ZVM with current context
+    pub fn zvm_eval(&mut self, bytecode: &[u8], input: &[u8]) -> Result<ExecutionResult> {
+        debug!("🧠 Evaluating bytecode in ZVM");
+        
+        // Log VM state and identity
+        if let Some(ref context) = self.current_context {
+            debug!("📊 VM State - Block: {}, Gas: {}", context.block_number, context.gas_limit);
+            
+            if let Some(ref identity) = context.identity {
+                debug!("🆔 Identity used: QID={}, Device-bound={}", 
+                       hex::encode(&identity.qid), identity.device_bound);
+                
+                // Create a mock signature for logging
+                let mock_signature = format!("sig_{}", hex::encode(&identity.qid[0..8]));
+                debug!("✍️ Mock signature: {}", mock_signature);
+            }
+        } else {
+            warn!("⚠️  No VM context available for execution");
+        }
+        
+        // Execute the bytecode (existing implementation)
+        self.execute(bytecode, input)
     }
     
     /// Load and instantiate WASM module

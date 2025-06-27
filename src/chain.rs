@@ -48,7 +48,7 @@ pub struct ChainManager {
 }
 
 impl ChainManager {
-    pub async fn new(state: Arc<ChainState>, vm_dispatcher: VmDispatcher) -> Result<Self> {
+    pub async fn new(state: Arc<ChainState>, mut vm_dispatcher: VmDispatcher) -> Result<Self> {
         info!("⛓️ Initializing ChainManager");
         
         Ok(Self {
@@ -56,6 +56,17 @@ impl ChainManager {
             vm_dispatcher,
             mempool: Vec::new(),
         })
+    }
+    
+    /// Process block using parseblocks dispatch
+    pub async fn process_block(&mut self, block_data: &[u8]) -> Result<Vec<ExecutionResult>> {
+        info!("📦 Processing block with {} bytes", block_data.len());
+        
+        // Use parseblocks dispatch for ZVM processing
+        let results = self.vm_dispatcher.parseblocks_dispatch(block_data)?;
+        
+        info!("✅ Block processed with {} execution results", results.len());
+        Ok(results)
     }
     
     /// Add transaction to mempool

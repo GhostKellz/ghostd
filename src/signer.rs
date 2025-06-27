@@ -1,12 +1,13 @@
 use anyhow::Result;
 use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::{info, warn, debug};
+use crate::ffi::realid::{RealIdFfi, RealIdIdentity};
 
 /// ZID (Zero-trust Identity) signer for blockchain operations
 pub struct ZidSigner {
-    private_key: Vec<u8>,
-    public_key: Vec<u8>,
+    realid_ffi: RealIdFfi,
+    identity: Option<RealIdIdentity>,
 }
 
 /// Signature structure
@@ -27,35 +28,57 @@ pub struct VerificationResult {
 
 impl ZidSigner {
     pub fn new() -> Result<Self> {
-        // TODO: Integrate with realid FFI for actual ZID functionality
-        // For now, using placeholder implementation
+        let realid_ffi = RealIdFfi::new()?;
         
-        let private_key = vec![0u8; 32]; // Placeholder private key
-        let public_key = vec![1u8; 33];  // Placeholder public key
-        
-        info!("🔑 ZID Signer initialized (placeholder implementation)");
-        warn!("⚠️  Using placeholder keys - integrate realid FFI for production");
+        info!("🔑 ZID Signer initialized with RealID integration");
         
         Ok(Self {
-            private_key,
-            public_key,
+            realid_ffi,
+            identity: None,
         })
+    }
+    
+    /// Initialize signer with passphrase
+    pub fn init_with_passphrase(&mut self, passphrase: &str, device_bound: bool) -> Result<()> {
+        debug!("🔐 Initializing ZID signer with passphrase");
+        
+        let identity = if device_bound {
+            let device_fp = self.realid_ffi.generate_device_fingerprint()?;
+            self.realid_ffi.generate_with_device(passphrase, &device_fp)?
+        } else {
+            self.realid_ffi.generate_from_passphrase(passphrase)?
+        };
+        
+        info!("🆔 ZID signer initialized with QID: {}", hex::encode(&identity.qid));
+        debug!("🔐 Device-bound identity: {}", identity.device_bound);
+        
+        self.identity = Some(identity);
+        Ok(())
+    }
+    
+    /// Get current identity QID
+    pub fn get_qid(&self) -> Option<Vec<u8>> {
+        self.identity.as_ref().map(|id| id.qid.clone())
     }
     
     /// Sign a message hash
     pub fn sign(&self, message_hash: &[u8]) -> Result<Signature> {
-        // TODO: Implement actual ZID signing via realid FFI
-        // Placeholder implementation
-        let mut hasher = Sha256::new();
-        hasher.update(&self.private_key);
-        hasher.update(message_hash);
-        let signature_data = hasher.finalize();
+        let identity = self.identity.as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No identity loaded for signing"))?;
         
-        Ok(Signature {
-            r: signature_data[0..16].to_vec(),
-            s: signature_data[16..32].to_vec(),
-            v: 27, // Standard recovery ID
-        })
+        debug!("✍️ Signing message with ZID identity QID: {}", hex::encode(&identity.qid));
+        
+        let signature_data = self.realid_ffi.sign_data(message_hash, &identity.private_key)?;
+        
+        if signature_data.len() >= 32 {
+            Ok(Signature {
+                r: signature_data[0..16].to_vec(),
+                s: signature_data[16..32].to_vec(),
+                v: 27, // Standard recovery ID
+            })
+        } else {
+            Err(anyhow::anyhow!("Invalid signature length"))
+        }
     }
     
     /// Verify a signature
@@ -71,8 +94,10 @@ impl ZidSigner {
     }
     
     /// Get public key
-    pub fn get_public_key(&self) -> &[u8] {
-        &self.public_key
+    pub fn get_public_key(&self) -> Result<Vec<u8>> {
+        self.identity.as_ref()
+            .map(|id| id.public_key.clone())
+            .ok_or_else(|| anyhow::anyhow!("No identity loaded"))
     }
     
     /// Hash message for signing
