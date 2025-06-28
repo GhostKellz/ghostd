@@ -1,10 +1,11 @@
 mod chain;
+mod gcrypt_compat;
+mod quic;
 mod rpc;
 mod signer;
 mod state;
 mod vm;
 mod ffi;
-mod domains;
 
 use anyhow::Result;
 use std::env;
@@ -31,37 +32,45 @@ async fn main() -> Result<()> {
     info!("🔧 Initializing blockchain state...");
     let state = Arc::new(state::ChainState::new().await?);
     
-    info!("🔑 Initializing identity signer...");
-    let mut signer = signer::ZidSigner::new()?;
-    
-    // Initialize with RealID (placeholder passphrase for now)
-    let realid_passphrase = env::var("GHOSTD_PASSPHRASE")
-        .unwrap_or_else(|_| "ghostd_default_identity_passphrase".to_string());
-    let device_bound = env::var("GHOSTD_DEVICE_BOUND").is_ok();
-    
-    info!("🆔 Loading RealID identity...");
-    signer.init_with_passphrase(&realid_passphrase, device_bound)?;
-    
-    if let Some(qid) = signer.get_qid() {
-        info!("✅ GhostD identity loaded - QID: {}", hex::encode(&qid[0..8]));
-    }
+    info!("🔑 Initializing realID signer...");
+    let signer = signer::RealIdSigner::new()?;
     
     info!("🧠 Initializing virtual machines...");
-    let mut vm_manager = vm::VmManager::new()?;
-    
-    // Initialize ZVM context with RealID
-    let current_time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)?
-        .as_secs();
-    
-    info!("🚀 Initializing ZVM context with RealID...");
-    vm_manager.init_zvm_context(Some(&realid_passphrase), 0, current_time)?;
+    let vm_manager = vm::VmManager::new()?;
     
     info!("⛓️ Initializing chain manager...");
     let chain = chain::ChainManager::new(state, vm_manager).await?;
     
+    // Clone for QUIC server
+    let chain_for_quic = chain.clone();
+    let signer_for_quic = signer.clone();
+    
     info!("📡 Starting gRPC server on port {}...", port);
-    rpc::start_server(port, chain, signer).await?;
+    let grpc_handle = tokio::spawn(async move {
+        rpc::start_server(port, chain, signer).await
+    });
+    
+    info!("🚀 Starting GhostQuic server on port {}...", port + 1);
+    let quic_addr = format!("[::]:{}", port + 1).parse()?;
+    let quic_handle = tokio::spawn(async move {
+        quic::start_ghostquic_server(quic_addr, chain_for_quic, signer_for_quic).await
+    });
+    
+    // Wait for either server to complete (or fail)
+    tokio::select! {
+        grpc_result = grpc_handle => {
+            match grpc_result? {
+                Ok(_) => info!("📡 gRPC server completed"),
+                Err(e) => warn!("📡 gRPC server error: {}", e),
+            }
+        }
+        quic_result = quic_handle => {
+            match quic_result? {
+                Ok(_) => info!("🚀 QUIC server completed"),
+                Err(e) => warn!("🚀 QUIC server error: {}", e),
+            }
+        }
+    }
     
     info!("👻 ghostd shutdown complete");
     Ok(())

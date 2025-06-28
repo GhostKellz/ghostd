@@ -41,32 +41,22 @@ pub struct TxResult {
 }
 
 /// Chain manager for block and transaction processing
+#[derive(Clone)]
 pub struct ChainManager {
     pub state: Arc<ChainState>,
     vm_dispatcher: VmDispatcher,
-    mempool: Vec<Transaction>,
+    mempool: Arc<tokio::sync::Mutex<Vec<Transaction>>>,
 }
 
 impl ChainManager {
-    pub async fn new(state: Arc<ChainState>, mut vm_dispatcher: VmDispatcher) -> Result<Self> {
+    pub async fn new(state: Arc<ChainState>, vm_dispatcher: VmDispatcher) -> Result<Self> {
         info!("⛓️ Initializing ChainManager");
         
         Ok(Self {
             state,
             vm_dispatcher,
-            mempool: Vec::new(),
+            mempool: Arc::new(tokio::sync::Mutex::new(Vec::new())),
         })
-    }
-    
-    /// Process block using parseblocks dispatch
-    pub async fn process_block(&mut self, block_data: &[u8]) -> Result<Vec<ExecutionResult>> {
-        info!("📦 Processing block with {} bytes", block_data.len());
-        
-        // Use parseblocks dispatch for ZVM processing
-        let results = self.vm_dispatcher.parseblocks_dispatch(block_data)?;
-        
-        info!("✅ Block processed with {} execution results", results.len());
-        Ok(results)
     }
     
     /// Add transaction to mempool
@@ -78,7 +68,8 @@ impl ChainManager {
             return Err(anyhow::anyhow!("Gas limit cannot be zero"));
         }
         
-        self.mempool.push(tx);
+        let mut mempool = self.mempool.lock().await;
+        mempool.push(tx);
         Ok(())
     }
     
@@ -204,12 +195,14 @@ impl ChainManager {
     }
     
     /// Get mempool transactions
-    pub fn get_mempool(&self) -> &[Transaction] {
-        &self.mempool
+    pub async fn get_mempool(&self) -> Vec<Transaction> {
+        let mempool = self.mempool.lock().await;
+        mempool.clone()
     }
     
     /// Clear mempool
-    pub fn clear_mempool(&mut self) {
-        self.mempool.clear();
+    pub async fn clear_mempool(&self) {
+        let mut mempool = self.mempool.lock().await;
+        mempool.clear();
     }
 }

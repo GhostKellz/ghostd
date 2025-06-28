@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tonic::{transport::Server, Request, Response, Status};
 use crate::chain::{ChainManager, Transaction};
-use crate::signer::ZidSigner;
+use crate::signer::RealIdSigner;
 use crate::vm::VmType;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -60,11 +60,11 @@ pub struct DeployContractResponse {
 /// gRPC service implementation
 pub struct GhostdService {
     chain_manager: Arc<Mutex<ChainManager>>,
-    signer: Arc<ZidSigner>,
+    signer: Arc<RealIdSigner>,
 }
 
 impl GhostdService {
-    pub fn new(chain_manager: ChainManager, signer: ZidSigner) -> Self {
+    pub fn new(chain_manager: ChainManager, signer: RealIdSigner) -> Self {
         Self {
             chain_manager: Arc::new(Mutex::new(chain_manager)),
             signer: Arc::new(signer),
@@ -222,7 +222,7 @@ impl GhostdService {
 }
 
 /// Start the gRPC server
-pub async fn start_server(port: u16, chain: ChainManager, signer: ZidSigner) -> Result<()> {
+pub async fn start_server(port: u16, chain: ChainManager, signer: RealIdSigner) -> Result<()> {
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
     let service = GhostdService::new(chain, signer);
     

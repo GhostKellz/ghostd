@@ -32,6 +32,7 @@ pub trait VmRuntime {
 }
 
 /// VM dispatcher - routes execution to correct VM based on type
+#[derive(Clone)]
 pub struct VmDispatcher {
     zvm: zvm::ZvmRuntime,
     rvm: rvm::RvmRuntime,
@@ -43,21 +44,6 @@ impl VmDispatcher {
             zvm: zvm::ZvmRuntime::new()?,
             rvm: rvm::RvmRuntime::new()?,
         })
-    }
-    
-    /// Initialize ZVM context with identity and blockchain state
-    pub fn init_zvm_context(&mut self, passphrase: Option<&str>, block_number: u64, timestamp: u64) -> Result<()> {
-        self.zvm.zvm_init(passphrase, block_number, timestamp)
-    }
-    
-    /// Parse blocks and dispatch to ZVM
-    pub fn parseblocks_dispatch(&mut self, block_data: &[u8]) -> Result<Vec<ExecutionResult>> {
-        self.zvm.parseblocks_dispatch(block_data)
-    }
-    
-    /// Evaluate bytecode in ZVM with context
-    pub fn zvm_eval(&mut self, bytecode: &[u8], input: &[u8]) -> Result<ExecutionResult> {
-        self.zvm.zvm_eval(bytecode, input)
     }
 
     /// Execute contract based on VM type

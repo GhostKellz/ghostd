@@ -68,6 +68,7 @@ impl DatabaseCommit for MemoryDb {
 }
 
 /// RVM (Rust Virtual Machine) runtime using REVM for EVM compatibility
+#[derive(Clone)]
 pub struct RvmRuntime {
     db: MemoryDb,
     gas_limit: u64,
