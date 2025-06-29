@@ -1,0 +1,48 @@
+[package]
+name = "zquic-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core networking and async
+tokio = { version = "1.0", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+
+# QUIC implementation (using quinn as backbone)
+quinn = "0.11"
+rustls = "0.23"
+rcgen = "0.12"
+rustls-pemfile = "2.1"
+
+# gRPC support  
+tonic = "0.12"
+prost = "0.13"
+
+# Cryptography
+ed25519-dalek = "2.1"
+sha2 = "0.10"
+blake3 = "1.5"
+
+# DNS support
+trust-dns-resolver = "0.23"
+trust-dns-proto = "0.23"
+
+# Serialization and utilities
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling and logging
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# C FFI support
+libc = "0.2"
+
+[lib]
+name = "zquic_ffi"
+crate-type = ["cdylib", "rlib"]  # Both dynamic library and Rust library

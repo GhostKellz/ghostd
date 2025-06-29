@@ -1,6 +1,5 @@
 use anyhow::Result;
 use crate::gcrypt_compat as gcrypt;
-use gcrypt::prelude::*;
 use std::ffi::{CStr, CString};
 use tracing::{info, warn, error};
 
@@ -128,8 +127,8 @@ impl RealIdFfi {
     /// Gcrypt-based signing
     fn gcrypt_sign_data(&self, data: &[u8], private_key: &[u8]) -> Result<Vec<u8>> {
         // Create gcrypt private key from bytes
-        let gcrypt_private_key = gcrypt::asymmetric::PrivateKey::from_bytes(
-            gcrypt::asymmetric::Algorithm::Ed25519, 
+        let gcrypt_private_key = gcrypt::wrapper::PrivateKey::from_bytes(
+            gcrypt::wrapper::Algorithm::Ed25519, 
             private_key
         ).map_err(|e| anyhow::anyhow!("Invalid private key format: {}", e))?;
         
@@ -166,7 +165,7 @@ impl RealIdFfi {
     
     /// Gcrypt-based keypair generation
     fn gcrypt_generate_keypair(&self) -> Result<(Vec<u8>, Vec<u8>)> {
-        let keypair = gcrypt::asymmetric::KeyPair::generate(gcrypt::asymmetric::Algorithm::Ed25519)
+        let keypair = gcrypt::wrapper::KeyPair::generate(gcrypt::wrapper::Algorithm::Ed25519)
             .map_err(|e| anyhow::anyhow!("Gcrypt keypair generation failed: {}", e))?;
         
         let private_key = keypair.private_key().as_bytes().to_vec();

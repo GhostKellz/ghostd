@@ -123,7 +123,7 @@ impl RealIdSigner {
         gcrypt::init();
         
         // Generate Ed25519 keypair using gcrypt
-        KeyPair::generate(gcrypt::asymmetric::Algorithm::Ed25519)
+        KeyPair::generate(gcrypt::wrapper::Algorithm::Ed25519)
             .map_err(|e| anyhow::anyhow!("Gcrypt keypair generation failed: {}", e))
     }
     
@@ -234,7 +234,7 @@ impl RealIdSigner {
         let is_valid = match signature.algorithm.as_str() {
             "Gcrypt-Ed25519-RealID" => {
                 // Use gcrypt for verification
-                let public_key = PublicKey::from_bytes(gcrypt::asymmetric::Algorithm::Ed25519, public_key_bytes)
+                let public_key = PublicKey::from_bytes(gcrypt::wrapper::Algorithm::Ed25519, public_key_bytes)
                     .map_err(|e| anyhow::anyhow!("Invalid gcrypt public key: {}", e))?;
                 
                 public_key.verify(message_hash, &signature.data)

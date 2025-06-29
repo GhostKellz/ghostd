@@ -224,7 +224,7 @@ impl GhostdService {
 /// Start the gRPC server
 pub async fn start_server(port: u16, chain: ChainManager, signer: RealIdSigner) -> Result<()> {
     let addr = std::net::SocketAddr::from(([0, 0, 0, 0], port));
-    let service = GhostdService::new(chain, signer);
+    let _service = GhostdService::new(chain, signer);
     
     info!("🚀 Starting gRPC server on {}", addr);
     
